@@ -28,11 +28,10 @@ type GroupMember struct {
 
 type Message struct {
 	MessageID    int64     `json:"message_id"`
-	FromNumber   string    `json:"from_number"`
-	ToNumber     string    `json:"to_number"`
+	Username     string    `json:"username"`
 	MessageText  string    `json:"message_text"`
 	SentDatetime time.Time `json:"sent_datetime"`
-	ContactID    int64     `json:"contact_id"`
+	GroupID      int64     `json:"group_id"`
 }
 
 type MessageGroup struct {

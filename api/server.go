@@ -38,6 +38,10 @@ func (server *Server) setUpRouter() {
 	router.POST("/contacts", server.createContact)
 	router.POST("/contacts/login", server.loginContact)
 
+	//authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
+
+	//auth
+
 	server.router = router
 }
 
