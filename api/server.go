@@ -41,6 +41,9 @@ func (server *Server) setUpRouter() {
 	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
 
 	authRoutes.POST("/messageGroups", server.createMessageGroup)
+	authRoutes.POST("/groupMembers", server.createGroupMember)
+	authRoutes.POST("/messages", server.createMessage)
+	authRoutes.GET("/messages", server.listUserGroupMessage)
 
 	server.router = router
 }
