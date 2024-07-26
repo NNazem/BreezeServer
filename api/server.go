@@ -6,6 +6,10 @@ import (
 	"BreezeServer/util"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
+	"strconv"
+	"sync"
 )
 
 type Server struct {
@@ -13,6 +17,9 @@ type Server struct {
 	store      *db.Store
 	tokenMaker token.Maker
 	router     *gin.Engine
+	room       *room
+	rooms      map[int64]*room
+	roomsMutex sync.RWMutex
 }
 
 func NewServer(config util.Config, store *db.Store) (*Server, error) {
@@ -25,10 +32,30 @@ func NewServer(config util.Config, store *db.Store) (*Server, error) {
 		config:     config,
 		store:      store,
 		tokenMaker: tokenMaker,
+		room:       newRoom(),
+		rooms:      make(map[int64]*room),
 	}
+
+	server.room.setServer(server)
 
 	server.setUpRouter()
 	return server, nil
+}
+
+func (server *Server) getOrCreateRoom(roomID int64) *room {
+	server.roomsMutex.Lock()
+	defer server.roomsMutex.Unlock()
+
+	if r, exists := server.rooms[roomID]; exists {
+		return r
+	}
+
+	r := newRoom()
+	r.setServer(server)
+	go r.run()
+	server.rooms[roomID] = r
+	log.Printf("Nuova stanza creata con ID: %s", roomID)
+	return r
 }
 
 func (server *Server) setUpRouter() {
@@ -45,11 +72,22 @@ func (server *Server) setUpRouter() {
 	authRoutes.POST("/messages", server.createMessage)
 	authRoutes.GET("/messages", server.listUserGroupMessage)
 
+	router.GET("/ws", func(c *gin.Context) {
+		roomID := c.Query("group_id")
+		roomIDConverted, _ := strconv.ParseInt(roomID, 10, 64)
+		room := server.getOrCreateRoom(roomIDConverted)
+		server.serveWs(c.Writer, c.Request, room)
+	})
+
 	server.router = router
 }
 
 func (server *Server) Start(address string) error {
 	return server.router.Run(address)
+}
+
+func (server *Server) serveWs(w http.ResponseWriter, r *http.Request, room *room) {
+	room.ServerHTTP(w, r)
 }
 
 func errorResponse(err error) gin.H {

@@ -3,6 +3,7 @@ package api
 import (
 	db "BreezeServer/db/sqlc"
 	"BreezeServer/token"
+	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
@@ -34,26 +35,39 @@ func (server *Server) createMessage(ctx *gin.Context) {
 		return
 	}
 
+	message, err := server.createMessageLogic(req.Username, req.MessageText, req.GroupId)
+
+	if err != nil {
+		if err.Error() == "forbidden action" {
+			ctx.JSON(http.StatusForbidden, errorResponse(err))
+		} else {
+			ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		}
+		return
+	}
+	ctx.JSON(http.StatusOK, message)
+}
+
+func (server *Server) createMessageLogic(username string, messageText string, groupid int64) (db.Message, error) {
 	arg := db.CreateMessageParams{
-		Username:    req.Username,
-		MessageText: req.MessageText,
-		GroupID:     req.GroupId,
+		Username:    username,
+		MessageText: messageText,
+		GroupID:     groupid,
 	}
 
-	message, err := server.store.CreateMessage(ctx, arg)
+	message, err := server.store.CreateMessage(context.Background(), arg)
+
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok {
 			switch pqErr.Code.Name() {
 			case "foregin_key_violation", "unique_violation":
-				ctx.JSON(http.StatusForbidden, errorResponse(err))
-				return
+				return db.Message{}, errors.New("forbidden action")
 			}
 		}
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return
+		return db.Message{}, err
 	}
 
-	ctx.JSON(http.StatusOK, message)
+	return message, nil
 }
 
 func (server *Server) listUserGroupMessage(ctx *gin.Context) {
