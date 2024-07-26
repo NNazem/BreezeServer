@@ -17,6 +17,8 @@ type client struct {
 	username string
 
 	roomId int64
+
+	server *Server
 }
 
 func (c *client) read() {
@@ -28,6 +30,10 @@ func (c *client) read() {
 			return
 		}
 		log.Printf("Message read: %s", string(msg))
+		_, err = c.server.createMessageLogic(c.username, string(msg), c.roomId)
+		if err != nil {
+			errorResponse(err)
+		}
 		c.room.forward <- msg
 	}
 }

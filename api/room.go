@@ -47,10 +47,6 @@ func (r *room) run() {
 			for client := range r.clients {
 				select {
 				case client.receive <- msg:
-					_, err := r.server.createMessageLogic(client.username, string(msg), client.roomId)
-					if err != nil {
-						errorResponse(err)
-					}
 					log.Printf("Message sent")
 				default:
 					log.Printf("Cannot send the message, removing the client")
@@ -95,6 +91,7 @@ func (r *room) ServerHTTP(w http.ResponseWriter, req *http.Request) {
 		room:     r,
 		username: username,
 		roomId:   roomIdConverted,
+		server:   r.server,
 	}
 	r.join <- client
 	log.Println("Client added join")

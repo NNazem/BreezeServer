@@ -4,6 +4,7 @@ import (
 	db "BreezeServer/db/sqlc"
 	"BreezeServer/token"
 	"BreezeServer/util"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"log"
@@ -74,6 +75,21 @@ func (server *Server) setUpRouter() {
 
 	router.GET("/ws", func(c *gin.Context) {
 		roomID := c.Query("group_id")
+		token := c.Query("token")
+		username := c.Query("username")
+		payload, err := server.tokenMaker.VerifyToken(token)
+
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse(err))
+			return
+		}
+
+		if payload.Username != username {
+			err := errors.New("Username doesn't belong to the authenticated user")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, errorResponse(err))
+			return
+		}
+
 		roomIDConverted, _ := strconv.ParseInt(roomID, 10, 64)
 		room := server.getOrCreateRoom(roomIDConverted)
 		server.serveWs(c.Writer, c.Request, room)
