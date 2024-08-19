@@ -36,19 +36,33 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 	return i, err
 }
 
+const fetchLastMessage = `-- name: FetchLastMessage :one
+SELECT  a.message_id, a.username, a.message_text, a.sent_datetime, a.group_id
+FROM message a
+WHERE a.sent_datetime = (select max(b.sent_datetime) from message b where b.group_id = a.group_id) AND a.group_id = $1
+`
+
+func (q *Queries) FetchLastMessage(ctx context.Context, groupID int64) (Message, error) {
+	row := q.db.QueryRowContext(ctx, fetchLastMessage, groupID)
+	var i Message
+	err := row.Scan(
+		&i.MessageID,
+		&i.Username,
+		&i.MessageText,
+		&i.SentDatetime,
+		&i.GroupID,
+	)
+	return i, err
+}
+
 const listUserGroupMessage = `-- name: ListUserGroupMessage :many
 SELECT message_id, username, message_text, sent_datetime, group_id
 FROM message
-WHERE username = $1 AND group_id = $2
+WHERE group_id = $1
 `
 
-type ListUserGroupMessageParams struct {
-	Username string `json:"username"`
-	GroupID  int64  `json:"group_id"`
-}
-
-func (q *Queries) ListUserGroupMessage(ctx context.Context, arg ListUserGroupMessageParams) ([]Message, error) {
-	rows, err := q.db.QueryContext(ctx, listUserGroupMessage, arg.Username, arg.GroupID)
+func (q *Queries) ListUserGroupMessage(ctx context.Context, groupID int64) ([]Message, error) {
+	rows, err := q.db.QueryContext(ctx, listUserGroupMessage, groupID)
 	if err != nil {
 		return nil, err
 	}

@@ -24,6 +24,7 @@ type contactResponse struct {
 	ProfilePhoto []byte `json:"profile_photo"`
 	PhoneNumber  string `json:"phone_number" `
 	Username     string `json:"username" `
+	Contact_id   int64  `json:"contact_id"`
 }
 
 func newContactResponse(contact db.Contact) contactResponse {
@@ -33,6 +34,7 @@ func newContactResponse(contact db.Contact) contactResponse {
 		LastName:     contact.LastName,
 		ProfilePhoto: contact.ProfilePhoto,
 		PhoneNumber:  contact.PhoneNumber,
+		Contact_id:   contact.ContactID,
 	}
 }
 
@@ -118,4 +120,54 @@ func (server *Server) loginContact(ctx *gin.Context) {
 		User:        newContactResponse(user),
 	}
 	ctx.JSON(http.StatusOK, rsp)
+}
+
+type getContactListRequest struct {
+	ContactId int64 `json:"contact_id" binding:"required"`
+}
+
+func (server *Server) getContactList(ctx *gin.Context) {
+	var req getContactListRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	contactList, err := server.store.GetContactList(ctx, req.ContactId)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code.Name() {
+			case "foreign_key_violation", "unique_violation":
+				ctx.JSON(http.StatusForbidden, errorResponse(err))
+				return
+			}
+		}
+	}
+
+	ctx.JSON(http.StatusOK, contactList)
+}
+
+type getContactListSearchRequest struct {
+	Username string `json:"username" binding:"required"`
+}
+
+func (server *Server) getContactSearchList(ctx *gin.Context) {
+	var req getContactListSearchRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	contactList, err := server.store.SearchContact(ctx, req.Username)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code.Name() {
+			case "foreign_key_violation", "unique_violation":
+				ctx.JSON(http.StatusForbidden, errorResponse(err))
+				return
+			}
+		}
+	}
+
+	ctx.JSON(http.StatusOK, contactList)
 }

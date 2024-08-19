@@ -63,15 +63,21 @@ func (server *Server) setUpRouter() {
 	fmt.Println("Setting up router")
 	router := gin.Default()
 
+	router.Use(corsMiddleware())
 	router.POST("/contacts", server.createContact)
 	router.POST("/contacts/login", server.loginContact)
 
 	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
 
+	authRoutes.POST("/contacts/getContactLists", server.getContactList)
+	authRoutes.POST("/contacts/search", server.getContactSearchList)
 	authRoutes.POST("/messageGroups", server.createMessageGroup)
 	authRoutes.POST("/groupMembers", server.createGroupMember)
+	authRoutes.POST("/groupMembers/searchId", server.getGroupId)
+
 	authRoutes.POST("/messages", server.createMessage)
-	authRoutes.GET("/messages", server.listUserGroupMessage)
+	authRoutes.POST("/messages/fetchMessages", server.listUserGroupMessage)
+	authRoutes.POST("/messages/last", server.getLastMessage)
 
 	router.GET("/ws", func(c *gin.Context) {
 		roomID := c.Query("group_id")
@@ -96,6 +102,22 @@ func (server *Server) setUpRouter() {
 	})
 
 	server.router = router
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }
 
 func (server *Server) Start(address string) error {

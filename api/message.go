@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"net/http"
+	"sort"
 )
 
 type createMessageRequest struct {
@@ -17,8 +18,11 @@ type createMessageRequest struct {
 }
 
 type listUserGroupMessageRequest struct {
-	Username string `json:"username" binding:"required"`
-	GroupId  int64  `json:"group_id" binding:"required"`
+	GroupId int64 `json:"group_id" binding:"required"`
+}
+
+type getLastMessage struct {
+	GroupID int64 `json:"group_id" binding:"required"`
 }
 
 func (server *Server) createMessage(ctx *gin.Context) {
@@ -77,12 +81,7 @@ func (server *Server) listUserGroupMessage(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.ListUserGroupMessageParams{
-		Username: req.Username,
-		GroupID:  req.GroupId,
-	}
-
-	messages, err := server.store.ListUserGroupMessage(ctx, arg)
+	messages, err := server.store.ListUserGroupMessage(ctx, req.GroupId)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok {
 			switch pqErr.Code.Name() {
@@ -95,5 +94,32 @@ func (server *Server) listUserGroupMessage(ctx *gin.Context) {
 		return
 	}
 
+	sort.Slice(messages[:], func(i, j int) bool {
+		return messages[i].SentDatetime.Before(messages[j].SentDatetime)
+	})
+
 	ctx.JSON(http.StatusOK, messages)
+}
+
+func (server *Server) getLastMessage(ctx *gin.Context) {
+	var req getLastMessage
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	message, err := server.store.FetchLastMessage(ctx, req.GroupID)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code.Name() {
+			case "foreign_key_violation", "unique_violation":
+				ctx.JSON(http.StatusForbidden, errorResponse(err))
+				return
+			}
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+	ctx.JSON(http.StatusOK, message)
 }

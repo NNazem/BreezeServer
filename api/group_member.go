@@ -39,3 +39,34 @@ func (server *Server) createGroupMember(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, groupMember)
 }
+
+type getGroupIdRequest struct {
+	ContactId1 int64 `json:"contact_id_1" binding:"required"`
+	ContactId2 int64 `json:"contact_id_2" binding:"required"`
+}
+
+func (server *Server) getGroupId(ctx *gin.Context) {
+	var req getGroupIdRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	arg := db.GetGroupIdParams{
+		ContactID:   req.ContactId1,
+		ContactID_2: req.ContactId2,
+	}
+
+	groupId, err := server.store.GetGroupId(ctx, arg)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code.Name() {
+			case "foreign_key_violation", "unique_violation":
+				ctx.JSON(http.StatusForbidden, errorResponse(err))
+				return
+			}
+		}
+	}
+
+	ctx.JSON(http.StatusOK, groupId)
+}

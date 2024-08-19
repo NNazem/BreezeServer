@@ -8,4 +8,9 @@ INSERT INTO message(
 -- name: ListUserGroupMessage :many
 SELECT *
 FROM message
-WHERE username = $1 AND group_id = $2;
+WHERE group_id = $1;
+
+-- name: FetchLastMessage :one
+SELECT  a.*
+FROM message a
+WHERE a.sent_datetime = (select max(b.sent_datetime) from message b where b.group_id = a.group_id) AND a.group_id = $1;
