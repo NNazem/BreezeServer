@@ -14,3 +14,6 @@ WHERE group_id = $1;
 SELECT  a.*
 FROM message a
 WHERE a.sent_datetime = (select max(b.sent_datetime) from message b where b.group_id = a.group_id) AND a.group_id = $1;
+
+-- name: DeleteMessages :exec
+DELETE FROM message WHERE group_id = $1;

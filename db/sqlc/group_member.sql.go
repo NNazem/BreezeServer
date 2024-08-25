@@ -33,6 +33,15 @@ func (q *Queries) CreateGroupMember(ctx context.Context, arg CreateGroupMemberPa
 	return i, err
 }
 
+const deleteGroupMembers = `-- name: DeleteGroupMembers :exec
+DELETE FROM group_member WHERE group_id = $1
+`
+
+func (q *Queries) DeleteGroupMembers(ctx context.Context, groupID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteGroupMembers, groupID)
+	return err
+}
+
 const getGroupId = `-- name: GetGroupId :one
 SELECT a.group_id
 FROM group_member as a JOIN group_member as b ON a.group_id = b.group_id

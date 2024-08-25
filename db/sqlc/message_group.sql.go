@@ -21,3 +21,12 @@ func (q *Queries) CreateMessageGroup(ctx context.Context, groupName string) (Mes
 	err := row.Scan(&i.GroupID, &i.GroupName)
 	return i, err
 }
+
+const deleteMessageGroup = `-- name: DeleteMessageGroup :exec
+DELETE FROM message_group WHERE group_id = $1
+`
+
+func (q *Queries) DeleteMessageGroup(ctx context.Context, groupID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteMessageGroup, groupID)
+	return err
+}

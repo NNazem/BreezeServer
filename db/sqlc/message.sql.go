@@ -36,6 +36,15 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 	return i, err
 }
 
+const deleteMessages = `-- name: DeleteMessages :exec
+DELETE FROM message WHERE group_id = $1
+`
+
+func (q *Queries) DeleteMessages(ctx context.Context, groupID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteMessages, groupID)
+	return err
+}
+
 const fetchLastMessage = `-- name: FetchLastMessage :one
 SELECT  a.message_id, a.username, a.message_text, a.sent_datetime, a.group_id
 FROM message a

@@ -72,6 +72,7 @@ func (server *Server) setUpRouter() {
 	authRoutes.POST("/contacts/getContactLists", server.getContactList)
 	authRoutes.POST("/contacts/search", server.getContactSearchList)
 	authRoutes.POST("/messageGroups", server.createMessageGroup)
+	authRoutes.DELETE("/messageGroups/delete", server.deleteMessageGroup)
 	authRoutes.POST("/groupMembers", server.createGroupMember)
 	authRoutes.POST("/groupMembers/searchId", server.getGroupId)
 
