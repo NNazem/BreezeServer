@@ -77,6 +77,7 @@ func (server *Server) setUpRouter() {
 	authRoutes.POST("/groupMembers/searchId", server.getGroupId)
 
 	authRoutes.POST("/messages", server.createMessage)
+	authRoutes.DELETE("messages/delete", server.deleteMessages)
 	authRoutes.POST("/messages/fetchMessages", server.listUserGroupMessage)
 	authRoutes.POST("/messages/last", server.getLastMessage)
 

@@ -25,6 +25,10 @@ type getLastMessage struct {
 	GroupID int64 `json:"group_id" binding:"required"`
 }
 
+type DeleteMessages struct {
+	GroupID int64 `json:"group_id" binding:"required"`
+}
+
 func (server *Server) createMessage(ctx *gin.Context) {
 	var req createMessageRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -122,4 +126,29 @@ func (server *Server) getLastMessage(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, message)
+}
+
+func (server *Server) deleteMessages(ctx *gin.Context) {
+	var req DeleteMessages
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	err := server.store.DeleteMessages(ctx, req.GroupID)
+
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code.Name() {
+			case "foreign_key_violation", "unique_violation":
+				ctx.JSON(http.StatusForbidden, errorResponse(err))
+				return
+			}
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, "Messages delete successfully.")
 }
