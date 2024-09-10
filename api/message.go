@@ -4,9 +4,14 @@ import (
 	db "BreezeServer/db/sqlc"
 	"BreezeServer/token"
 	"context"
+	aes2 "crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
+	"io"
 	"net/http"
 	"sort"
 )
@@ -56,12 +61,83 @@ func (server *Server) createMessage(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, message)
 }
 
+func (server *Server) encryptMessage(message string) (string, error) {
+	decodedKey, err := base64.StdEncoding.DecodeString(server.config.EncryptionKey)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(decodedKey) != 32 {
+		panic(err)
+	}
+
+	aes, err := aes2.NewCipher(decodedKey)
+
+	if err != nil {
+		panic(err)
+	}
+
+	gcm, err := cipher.NewGCM(aes)
+	if err != nil {
+		panic(err)
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		panic(err)
+	}
+
+	ciphertext := gcm.Seal(nonce, nonce, []byte(message), nil)
+
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+func (server *Server) decryptMessage(encryptedMessage string) (string, error) {
+	ciphertext, err := base64.StdEncoding.DecodeString(encryptedMessage)
+
+	if err != nil {
+		panic(err)
+	}
+
+	key, err := base64.StdEncoding.DecodeString(server.config.EncryptionKey)
+	if err != nil {
+		panic(err)
+	}
+
+	block, err := aes2.NewCipher(key)
+
+	if err != nil {
+		panic(err)
+	}
+
+	gcm, err := cipher.NewGCM(block)
+
+	if err != nil {
+		panic(err)
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		panic(err)
+	}
+
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		panic(err)
+	}
+	return string(plaintext), nil
+}
+
 func (server *Server) createMessageLogic(username string, messageText string, groupid int64) (db.Message, error) {
 	arg := db.CreateMessageParams{
 		Username:    username,
 		MessageText: messageText,
 		GroupID:     groupid,
 	}
+
+	arg.MessageText, _ = server.encryptMessage(arg.MessageText)
 
 	message, err := server.store.CreateMessage(context.Background(), arg)
 
@@ -101,6 +177,9 @@ func (server *Server) listUserGroupMessage(ctx *gin.Context) {
 	sort.Slice(messages[:], func(i, j int) bool {
 		return messages[i].SentDatetime.Before(messages[j].SentDatetime)
 	})
+	for i := range messages {
+		messages[i].MessageText, _ = server.decryptMessage(messages[i].MessageText)
+	}
 
 	ctx.JSON(http.StatusOK, messages)
 }
